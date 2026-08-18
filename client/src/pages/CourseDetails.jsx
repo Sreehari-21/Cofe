@@ -185,6 +185,10 @@ const CourseDetails = () => {
     return <div className="error-banner">{error}</div>;
   }
 
+  if (!course) {
+    return <div className="error-banner">Course not found.</div>;
+  }
+
   const isFaculty = user.role === 'faculty' || user.role === 'admin';
 
   return (
@@ -667,7 +671,7 @@ const styles = {
     fontWeight: 500,
     cursor: 'pointer',
     whiteSpace: 'nowrap',
-    transition: 'all var(--transition-speed) ease',
+    transition: 'var(--transition)',
   },
   tabButtonActive: {
     color: 'var(--primary)',
@@ -677,7 +681,6 @@ const styles = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
     gap: '1.5rem',
-    backgroundColor: 'var(--background)',
     padding: '1.25rem',
     borderRadius: 'var(--radius-sm)',
   },

@@ -20,7 +20,7 @@ const DashboardLayout = () => {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="workbench-shell" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
       <main className="workbench-main">
         <Outlet />
