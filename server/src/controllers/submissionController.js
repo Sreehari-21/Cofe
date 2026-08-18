@@ -1,10 +1,40 @@
+const path = require('path');
+const fs = require('fs');
 const Submission = require('../models/Submission');
 const Project = require('../models/Project');
 const Course = require('../models/Course');
 
-// @desc    Submit project file
-// @route   POST /api/projects/:id/submit
-// @access  Private (Student)
+const uploadDir = path.join(__dirname, '../../uploads');
+
+const publicFileInfo = (fileInfo) => {
+  if (!fileInfo) return fileInfo;
+  return {
+    filename: fileInfo.filename,
+    originalName: fileInfo.originalName,
+    size: fileInfo.size,
+    mimetype: fileInfo.mimetype
+  };
+};
+
+const publicSubmission = (doc) => {
+  const o = typeof doc.toObject === 'function' ? doc.toObject() : { ...doc };
+  o.fileInfo = publicFileInfo(o.fileInfo);
+  return o;
+};
+
+const canAccessSubmission = (req, submission) => {
+  const ownerId = submission.submittedBy._id
+    ? submission.submittedBy._id.toString()
+    : submission.submittedBy.toString();
+  const guideId = submission.projectId.guide
+    ? submission.projectId.guide.toString()
+    : null;
+  const isOwner = ownerId === req.user.id;
+  const isGuide = guideId === req.user.id;
+  const isAdmin = req.user.role === 'admin';
+  return isOwner || isGuide || isAdmin;
+};
+
 exports.submitProject = async (req, res, next) => {
   try {
     const projectId = req.params.id;
@@ -50,7 +80,7 @@ exports.submitProject = async (req, res, next) => {
           message: 'Submission closed: deadline has passed'
         });
       }
-      
+
       if (project.lateSubmissionDeadline && now > project.lateSubmissionDeadline) {
         return res.status(400).json({
           success: false,
@@ -59,9 +89,11 @@ exports.submitProject = async (req, res, next) => {
       }
     }
 
-    const lastSubmission = await Submission.findOne({ projectId })
-      .sort({ submissionVersion: -1 });
-    
+    const lastSubmission = await Submission.findOne({
+      projectId,
+      submittedBy: req.user.id
+    }).sort({ submissionVersion: -1 });
+
     const version = lastSubmission ? lastSubmission.submissionVersion + 1 : 1;
 
     const submission = await Submission.create({
@@ -81,16 +113,13 @@ exports.submitProject = async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: 'Project submitted successfully',
-      data: submission
+      data: publicSubmission(submission)
     });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Get submissions list (filtered by role)
-// @route   GET /api/submissions
-// @access  Private
 exports.getSubmissions = async (req, res, next) => {
   try {
     let query = {};
@@ -103,27 +132,24 @@ exports.getSubmissions = async (req, res, next) => {
     }
 
     const submissions = await Submission.find(query)
-      .populate('projectId', 'title deadline allowLateSubmission')
+      .populate('projectId', 'title deadline allowLateSubmission maxMarks guide')
       .populate('submittedBy', 'name email department')
       .sort({ submittedAt: -1 });
 
     res.status(200).json({
       success: true,
       count: submissions.length,
-      data: submissions
+      data: submissions.map(publicSubmission)
     });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Get submission by ID
-// @route   GET /api/submissions/:id
-// @access  Private
 exports.getSubmissionById = async (req, res, next) => {
   try {
     const submission = await Submission.findById(req.params.id)
-      .populate('projectId', 'title description deadline guide')
+      .populate('projectId', 'title description deadline guide maxMarks')
       .populate('submittedBy', 'name email department');
 
     if (!submission) {
@@ -133,11 +159,7 @@ exports.getSubmissionById = async (req, res, next) => {
       });
     }
 
-    const isOwner = submission.submittedBy.id === req.user.id;
-    const isGuide = submission.projectId.guide.toString() === req.user.id;
-    const isAdmin = req.user.role === 'admin';
-
-    if (!isOwner && !isGuide && !isAdmin) {
+    if (!canAccessSubmission(req, submission)) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to view this submission'
@@ -146,8 +168,53 @@ exports.getSubmissionById = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: submission
+      data: publicSubmission(submission)
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.downloadFile = async (req, res, next) => {
+  try {
+    const submission = await Submission.findById(req.params.id)
+      .populate('projectId', 'guide')
+      .populate('submittedBy', 'name');
+
+    if (!submission) {
+      return res.status(404).json({
+        success: false,
+        message: 'Submission not found'
+      });
+    }
+
+    if (!canAccessSubmission(req, submission)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to download this file'
+      });
+    }
+
+    const safeName = path.basename(submission.fileInfo.filename);
+    const filePath = path.join(uploadDir, safeName);
+
+    if (!filePath.startsWith(uploadDir) || !fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found on disk'
+      });
+    }
+
+    const original = (submission.fileInfo.originalName || safeName).replace(/"/g, '');
+    const inline = req.query.inline === '1' || req.query.inline === 'true';
+    const type = submission.fileInfo.mimetype || 'application/octet-stream';
+
+    res.setHeader('Content-Type', type);
+    res.setHeader(
+      'Content-Disposition',
+      `${inline ? 'inline' : 'attachment'}; filename="${original}"`
+    );
+    res.sendFile(path.resolve(filePath));
   } catch (error) {
     next(error);
   }

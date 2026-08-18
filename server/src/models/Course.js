@@ -39,6 +39,12 @@ const CourseSchema = new mongoose.Schema({
   students: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  }],
+  leaveRecords: [{
+    studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    name: { type: String },
+    note: { type: String, default: '' },
+    leftAt: { type: Date, default: Date.now }
   }]
 }, {
   timestamps: true

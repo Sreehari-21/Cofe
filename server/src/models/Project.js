@@ -19,6 +19,15 @@ const ProjectSchema = new mongoose.Schema({
     type: [String],
     required: [true, 'Please specify technologies used']
   },
+  requirements: {
+    type: [String],
+    default: []
+  },
+  maxMarks: {
+    type: Number,
+    default: 100,
+    min: 1
+  },
   students: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

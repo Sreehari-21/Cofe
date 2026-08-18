@@ -97,9 +97,14 @@ exports.getCourseById = async (req, res, next) => {
       });
     }
 
+    const payload = course.toObject();
+    if (req.user.role === 'student') {
+      delete payload.leaveRecords;
+    }
+
     res.status(200).json({
       success: true,
-      data: course
+      data: payload
     });
   } catch (error) {
     next(error);
@@ -223,6 +228,43 @@ exports.joinCourse = async (req, res, next) => {
       success: true,
       message: 'Successfully enrolled in course',
       data: course
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.leaveCourse = async (req, res, next) => {
+  try {
+    const course = await Course.findById(req.params.id);
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found'
+      });
+    }
+
+    const enrolled = course.students.some((studentId) => studentId.toString() === req.user.id);
+    if (!enrolled) {
+      return res.status(400).json({
+        success: false,
+        message: 'You are not enrolled in this course'
+      });
+    }
+
+    course.students = course.students.filter((studentId) => studentId.toString() !== req.user.id);
+    const note = typeof req.body.note === 'string' ? req.body.note.trim() : '';
+    course.leaveRecords.push({
+      studentId: req.user.id,
+      name: req.user.name,
+      note,
+      leftAt: new Date()
+    });
+    await course.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Left course'
     });
   } catch (error) {
     next(error);

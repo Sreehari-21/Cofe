@@ -1,0 +1,10 @@
+Plan 1 — Cofe Dossier (hackathon)
+
+Dossier UI (paper/ink/stamps) plus close all security risks:
+- student-only public register; faculty/admin via admin
+- JWT_SECRET required
+- per-student submission versions
+- faculty-only assignment CRUD
+- auth file download, CORS allowlist, Vite /api proxy
+- persist maxMarks + requirements; ledger already in CourseDetails
+- 404 + RequireRole

@@ -1,14 +1,16 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
+import FileDownload from '../components/FileDownload';
 import { 
   BookOpen, Users, FileText, CheckSquare, BarChart, 
-  Copy, Check, Plus, Calendar, Clock, Download 
+  Copy, Check, Plus, Calendar, Clock
 } from 'lucide-react';
 
 const CourseDetails = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useContext(AuthContext);
 
   const [course, setCourse] = useState(null);
@@ -38,6 +40,10 @@ const CourseDetails = () => {
   const [filterStudent, setFilterStudent] = useState('');
   const [filterAssignment, setFilterAssignment] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [leaveNote, setLeaveNote] = useState('');
+  const [leaveLoading, setLeaveLoading] = useState(false);
+  const [leaveError, setLeaveError] = useState(null);
 
   const loadCourseData = async () => {
     try {
@@ -143,6 +149,20 @@ const CourseDetails = () => {
     return { text: studentSub.status === 'reviewed' ? 'Reviewed' : 'Submitted', status: studentSub.status };
   };
 
+  const handleLeaveCourse = async (e) => {
+    e.preventDefault();
+    setLeaveError(null);
+    try {
+      setLeaveLoading(true);
+      await api.post(`/courses/${id}/leave`, { note: leaveNote });
+      navigate('/');
+    } catch (err) {
+      setLeaveError(err.message || 'Could not leave course');
+    } finally {
+      setLeaveLoading(false);
+    }
+  };
+
   // Filtered submissions (Faculty view)
   const filteredSubmissions = submissions.filter(sub => {
     const subProjId = sub.projectId?._id || sub.projectId;
@@ -175,20 +195,26 @@ const CourseDetails = () => {
           <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
             {course.courseCode} • {course.semester}
           </span>
-          <h1 className="text-gradient" style={{ marginTop: '0.25rem', marginBottom: '0.5rem' }}>{course.courseName}</h1>
+                          <h1 className="text-gradient" style={{ marginTop: '0.25rem', marginBottom: '0.5rem' }}>{course.courseName}</h1>
           <p style={{ color: 'var(--text-muted)', margin: 0 }}>
             Led by <strong>Dr. {course.facultyId?.name}</strong> • {course.academicYear} • {course.department}
           </p>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-color)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Key:</span>
-            <code style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 'bold' }}>{course.referenceKey}</code>
-            <button onClick={copyRefKey} className="btn" style={{ padding: '0.25rem', background: 'transparent', border: 'none', color: 'var(--text-muted)' }}>
-              {copied ? <Check size={16} style={{ color: 'var(--success)' }} /> : <Copy size={16} />}
+          {isFaculty ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-color)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Key:</span>
+              <code style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 'bold' }}>{course.referenceKey}</code>
+              <button onClick={copyRefKey} className="btn" style={{ padding: '0.25rem', background: 'transparent', border: 'none', color: 'var(--text-muted)' }}>
+                {copied ? <Check size={16} style={{ color: 'var(--success)' }} /> : <Copy size={16} />}
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="btn btn-secondary" onClick={() => { setShowLeaveModal(true); setLeaveNote(''); setLeaveError(null); }}>
+              Leave
             </button>
-          </div>
+          )}
         </div>
       </div>
 
@@ -246,7 +272,7 @@ const CourseDetails = () => {
         <div className="card" style={{ padding: '1.5rem' }}>
           <h3 style={{ fontSize: '1.15rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Course Syllabus & Information</h3>
           <p style={{ color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '1.5rem' }}>
-            {course.description || 'No syllabus details specified for this course yet.'}
+            {course.description || '—'}
           </p>
 
           <div style={styles.overviewGrid}>
@@ -287,8 +313,7 @@ const CourseDetails = () => {
 
           {assignments.length === 0 ? (
             <div className="empty-state">
-              <p>No assignments have been published for this course yet.</p>
-              {isFaculty && <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>Click "Create Assignment" to assign a project/deliverable to the class.</p>}
+              <p>No assignments.</p>
             </div>
           ) : (
             <div style={styles.assignmentGrid}>
@@ -344,8 +369,7 @@ const CourseDetails = () => {
           <h3 style={{ fontSize: '1.15rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Enrolled Student Registry</h3>
           {!course.students || course.students.length === 0 ? (
             <div className="empty-state">
-              <p>No students have joined this course yet.</p>
-              <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>Share the reference key <strong>{course.referenceKey}</strong> with students so they can join.</p>
+              <p>No students.</p>
             </div>
           ) : (
             <div className="table-container" style={{ margin: 0 }}>
@@ -371,6 +395,32 @@ const CourseDetails = () => {
               </table>
             </div>
           )}
+
+          {course.leaveRecords && course.leaveRecords.length > 0 && (
+            <div style={{ marginTop: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.15rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Left</h3>
+              <div className="table-container" style={{ margin: 0 }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Note</th>
+                      <th>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {course.leaveRecords.map((rec, idx) => (
+                      <tr key={rec._id || idx}>
+                        <td style={{ fontWeight: 600 }}>{rec.name || '—'}</td>
+                        <td>{rec.note || '—'}</td>
+                        <td>{rec.leftAt ? new Date(rec.leftAt).toLocaleDateString() : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -390,7 +440,7 @@ const CourseDetails = () => {
 
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ fontSize: '0.8rem', marginBottom: '0.25rem' }}>Student</label>
-                <input type="text" className="form-control" placeholder="Search name..." value={filterStudent} onChange={(e) => setFilterStudent(e.target.value)} style={{ padding: '0.4rem', fontSize: '0.85rem' }} />
+                <input type="text" className="form-control" value={filterStudent} onChange={(e) => setFilterStudent(e.target.value)} style={{ padding: '0.4rem', fontSize: '0.85rem' }} />
               </div>
 
               <div className="form-group" style={{ margin: 0 }}>
@@ -406,7 +456,7 @@ const CourseDetails = () => {
 
           {filteredSubmissions.length === 0 ? (
             <div className="empty-state">
-              <p>No submissions found matching filters.</p>
+              <p>No submissions.</p>
             </div>
           ) : (
             <div className="table-container">
@@ -437,9 +487,7 @@ const CourseDetails = () => {
                         </td>
                         <td>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <a href={`http://localhost:5050/uploads/${sub.fileInfo.filename}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}>
-                              <Download size={14} />
-                            </a>
+                            <FileDownload submissionId={sub._id} />
                             {sub.status === 'pending' ? (
                               <Link to={`/submissions/${sub._id}/review`} className="btn btn-primary" style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem' }}>
                                 Review
@@ -465,11 +513,11 @@ const CourseDetails = () => {
           <h3 style={{ fontSize: '1.15rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Grade Book</h3>
           {!course.students || course.students.length === 0 ? (
             <div className="empty-state">
-              <p>No students enrolled to display results.</p>
+              <p>No students.</p>
             </div>
           ) : assignments.length === 0 ? (
             <div className="empty-state">
-              <p>No assignments published to show grades.</p>
+              <p>No assignments.</p>
             </div>
           ) : (
             <div className="table-container" style={{ margin: 0 }}>
@@ -524,18 +572,18 @@ const CourseDetails = () => {
             <form onSubmit={handleCreateAssignment}>
               <div className="form-group">
                 <label className="form-label">Assignment Title *</label>
-                <input type="text" className="form-control" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Compiler Lexer Design" />
+                <input type="text" className="form-control" required value={title} onChange={(e) => setTitle(e.target.value)} />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Description *</label>
-                <textarea className="form-control" rows="3" required value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Enter details of assignment tasks..." />
+                <textarea className="form-control" rows="3" required value={description} onChange={(e) => setDescription(e.target.value)} />
               </div>
 
               <div className="grid-cols-2">
                 <div className="form-group">
                   <label className="form-label">Technologies *</label>
-                  <input type="text" className="form-control" required value={technologies} onChange={(e) => setTechnologies(e.target.value)} placeholder="e.g. React, Node.js" />
+                  <input type="text" className="form-control" required value={technologies} onChange={(e) => setTechnologies(e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Maximum Marks</label>
@@ -545,7 +593,7 @@ const CourseDetails = () => {
 
               <div className="form-group">
                 <label className="form-label">Requirements (Comma separated)</label>
-                <input type="text" className="form-control" value={requirements} onChange={(e) => setRequirements(e.target.value)} placeholder="e.g. PDF report, GitHub Repository, ZIP file" />
+                <input type="text" className="form-control" value={requirements} onChange={(e) => setRequirements(e.target.value)} />
               </div>
 
               <div className="form-group">
@@ -570,6 +618,25 @@ const CourseDetails = () => {
                 <button type="submit" disabled={createLoading} className="btn btn-primary">
                   {createLoading ? 'Publishing...' : 'Publish Assignment'}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showLeaveModal && (
+        <div className="modal-backdrop">
+          <div className="card" style={styles.modalCard}>
+            <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Leave course</h2>
+            {leaveError && <div className="error-banner">{leaveError}</div>}
+            <form onSubmit={handleLeaveCourse}>
+              <div className="form-group">
+                <label className="form-label">Note (optional)</label>
+                <textarea className="form-control" rows="3" value={leaveNote} onChange={(e) => setLeaveNote(e.target.value)} />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowLeaveModal(false)} disabled={leaveLoading}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={leaveLoading}>{leaveLoading ? 'Leaving…' : 'Leave'}</button>
               </div>
             </form>
           </div>

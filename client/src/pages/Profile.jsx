@@ -10,7 +10,7 @@ const Profile = () => {
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto' }}>
       <div className="mb-6">
-        <h1 className="text-gradient">My Profile</h1>
+        <h1>Identity card</h1>
         <p style={{ color: 'var(--text-muted)' }}>Account configuration details.</p>
       </div>
 

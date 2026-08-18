@@ -17,6 +17,14 @@ exports.createReview = async (req, res, next) => {
       });
     }
 
+    const numericMarks = Number(marks);
+    if (Number.isNaN(numericMarks) || numericMarks < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Marks must be a non-negative number'
+      });
+    }
+
     const submission = await Submission.findById(submissionId).populate('projectId');
     if (!submission) {
       return res.status(404).json({
@@ -36,17 +44,25 @@ exports.createReview = async (req, res, next) => {
       });
     }
 
+    const cap = project.maxMarks || 100;
+    if (numericMarks > cap) {
+      return res.status(400).json({
+        success: false,
+        message: `Marks cannot exceed maximum of ${cap}`
+      });
+    }
+
     const review = await Review.create({
       submissionId,
       reviewer: req.user.id,
       comments,
-      marks,
+      marks: numericMarks,
       decision
     });
 
     submission.status = 'reviewed';
     submission.facultyFeedback = comments;
-    submission.marks = marks;
+    submission.marks = numericMarks;
     await submission.save();
 
     project.status = decision;

@@ -1,0 +1,11 @@
+---
+description: Taskmaster workflow for Cofe — use local tasks.json; never parse-prd
+alwaysApply: true
+---
+
+# Taskmaster (lean)
+
+- Source of truth: `.taskmaster/tasks/tasks.json` (tag `master`).
+- Work the lowest-id pending task whose dependencies are done.
+- After a task ships, set `"status": "done"` in that file. Do not call `parse_prd` or `expand_task` (wastes API tokens).
+- MCP for this repo is `TASK_MASTER_TOOLS=core` only.

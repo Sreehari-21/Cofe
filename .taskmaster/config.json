@@ -1,0 +1,8 @@
+{
+  "projectName": "cofe",
+  "global": {
+    "logLevel": "warn",
+    "defaultNumTasks": 6,
+    "defaultPriority": "high"
+  }
+}

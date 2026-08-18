@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
+import FileDownload from '../components/FileDownload';
 import { FileUp, Calendar, ShieldAlert, Award, FileText, HelpCircle, ArrowLeft } from 'lucide-react';
 
 const AssignmentDetails = () => {
@@ -249,7 +250,7 @@ const AssignmentDetails = () => {
       <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Submission History</h2>
       {submissions.length === 0 ? (
         <div className="empty-state">
-          <p>No documents have been submitted for this assignment yet.</p>
+          <p>No submissions.</p>
         </div>
       ) : (
         <div className="table-container">
@@ -304,15 +305,7 @@ const AssignmentDetails = () => {
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <a 
-                        href={`http://localhost:5050/uploads/${sub.fileInfo.filename}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="btn btn-secondary" 
-                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}
-                      >
-                        Download
-                      </a>
+                      <FileDownload submissionId={sub._id} />
                       {user.role === 'faculty' && sub.status === 'pending' && (
                         <Link 
                           to={`/submissions/${sub._id}/review`} 

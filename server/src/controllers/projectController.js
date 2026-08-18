@@ -7,10 +7,17 @@ const Course = require('../models/Course');
 // @access  Private (Student, Faculty, Admin)
 exports.createProject = async (req, res, next) => {
   try {
-    let { title, description, technologies, deadline, allowLateSubmission, lateSubmissionDeadline, courseId } = req.body;
+    let { title, description, technologies, deadline, allowLateSubmission, lateSubmissionDeadline, courseId, maxMarks, requirements } = req.body;
 
     if (req.params.courseId) {
       courseId = req.params.courseId;
+    }
+
+    if (!['faculty', 'admin'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only faculty can create assignments'
+      });
     }
 
     if (!title || !description || !technologies || !deadline || !courseId) {
@@ -28,28 +35,25 @@ exports.createProject = async (req, res, next) => {
       });
     }
 
-    const isEnrolled = course.students.some(id => id.toString() === req.user.id);
     const isOwner = course.facultyId.toString() === req.user.id;
     const isAdmin = req.user.role === 'admin';
 
-    if (!isEnrolled && !isOwner && !isAdmin) {
+    if (!isOwner && !isAdmin) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to create assignments in this course'
       });
     }
 
-    let students = [];
+    let students = course.students;
     let guide = course.facultyId;
-
-    if (req.user.role === 'student') {
-      students = [req.user.id];
-    } else {
-      students = course.students;
-    }
 
     if (typeof technologies === 'string') {
       technologies = technologies.split(',').map(tech => tech.trim());
+    }
+
+    if (typeof requirements === 'string') {
+      requirements = requirements.split(',').map((r) => r.trim()).filter(Boolean);
     }
 
     const project = await Project.create({
@@ -57,6 +61,8 @@ exports.createProject = async (req, res, next) => {
       title,
       description,
       technologies,
+      requirements: requirements || [],
+      maxMarks: Number(maxMarks) || 100,
       students,
       guide,
       deadline,
@@ -200,11 +206,10 @@ exports.updateProject = async (req, res, next) => {
       });
     }
 
-    const isStudent = project.students.some(studentId => studentId.toString() === req.user.id);
     const isGuide = project.guide.toString() === req.user.id;
     const isAdmin = req.user.role === 'admin';
 
-    if (!isStudent && !isGuide && !isAdmin) {
+    if (!isGuide && !isAdmin) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this project'
@@ -212,60 +217,54 @@ exports.updateProject = async (req, res, next) => {
     }
 
     let updates = {};
+    const { title, description, technologies, students, guide, status, deadline, allowLateSubmission, lateSubmissionDeadline, maxMarks, requirements } = req.body;
+    if (title) updates.title = title;
+    if (description) updates.description = description;
+    if (status) updates.status = status;
+    if (deadline) updates.deadline = deadline;
+    if (allowLateSubmission !== undefined) updates.allowLateSubmission = allowLateSubmission;
+    if (lateSubmissionDeadline !== undefined) updates.lateSubmissionDeadline = lateSubmissionDeadline;
+    if (maxMarks !== undefined) updates.maxMarks = Number(maxMarks);
+    if (requirements) {
+      updates.requirements = typeof requirements === 'string'
+        ? requirements.split(',').map((r) => r.trim()).filter(Boolean)
+        : requirements;
+    }
 
-    if (req.user.role === 'student') {
-      const { title, description, technologies } = req.body;
-      if (title) updates.title = title;
-      if (description) updates.description = description;
-      if (technologies) {
-        updates.technologies = typeof technologies === 'string' 
-          ? technologies.split(',').map(tech => tech.trim()) 
-          : technologies;
-      }
-    } else {
-      const { title, description, technologies, students, guide, status, deadline, allowLateSubmission, lateSubmissionDeadline } = req.body;
-      if (title) updates.title = title;
-      if (description) updates.description = description;
-      if (status) updates.status = status;
-      if (deadline) updates.deadline = deadline;
-      if (allowLateSubmission !== undefined) updates.allowLateSubmission = allowLateSubmission;
-      if (lateSubmissionDeadline !== undefined) updates.lateSubmissionDeadline = lateSubmissionDeadline;
-      
-      if (technologies) {
-        updates.technologies = typeof technologies === 'string' 
-          ? technologies.split(',').map(tech => tech.trim()) 
-          : technologies;
-      }
+    if (technologies) {
+      updates.technologies = typeof technologies === 'string'
+        ? technologies.split(',').map(tech => tech.trim())
+        : technologies;
+    }
 
-      if (guide) {
-        const facultyUser = await User.findById(guide);
-        if (!facultyUser || facultyUser.role !== 'faculty') {
+    if (guide) {
+      const facultyUser = await User.findById(guide);
+      if (!facultyUser || facultyUser.role !== 'faculty') {
+        return res.status(400).json({
+          success: false,
+          message: 'Assigned guide must be a valid faculty member'
+        });
+      }
+      updates.guide = guide;
+    }
+
+    if (students) {
+      if (!Array.isArray(students) || students.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide at least one student team member'
+        });
+      }
+      for (const studentId of students) {
+        const studentUser = await User.findById(studentId);
+        if (!studentUser || studentUser.role !== 'student') {
           return res.status(400).json({
             success: false,
-            message: 'Assigned guide must be a valid faculty member'
+            message: `User with ID ${studentId} is not a valid student`
           });
         }
-        updates.guide = guide;
       }
-
-      if (students) {
-        if (!Array.isArray(students) || students.length === 0) {
-          return res.status(400).json({
-            success: false,
-            message: 'Please provide at least one student team member'
-          });
-        }
-        for (const studentId of students) {
-          const studentUser = await User.findById(studentId);
-          if (!studentUser || studentUser.role !== 'student') {
-            return res.status(400).json({
-              success: false,
-              message: `User with ID ${studentId} is not a valid student`
-            });
-          }
-        }
-        updates.students = students;
-      }
+      updates.students = students;
     }
 
     project = await Project.findByIdAndUpdate(req.params.id, updates, {

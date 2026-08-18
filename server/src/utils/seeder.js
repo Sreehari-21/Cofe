@@ -123,7 +123,9 @@ const seedData = async () => {
         guide: guideCS,
         status: 'pending',
         deadline: futureDate,
-        allowLateSubmission: false
+        allowLateSubmission: false,
+        maxMarks: 100,
+        requirements: ['PDF report', 'ZIP source']
       },
       {
         courseId: courseMathId,
@@ -135,7 +137,9 @@ const seedData = async () => {
         status: 'pending',
         deadline: pastDate,
         allowLateSubmission: true,
-        lateSubmissionDeadline: lateDeadline
+        lateSubmissionDeadline: lateDeadline,
+        maxMarks: 50,
+        requirements: ['Smart contract', 'Demo notes']
       }
     ]);
     console.log('Assignments (Projects) seeded.');

@@ -14,6 +14,13 @@ const ManageUsers = () => {
   const [editDept, setEditDept] = useState('');
   const [editError, setEditError] = useState(null);
 
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newRole, setNewRole] = useState('faculty');
+  const [newDept, setNewDept] = useState('');
+  const [createError, setCreateError] = useState(null);
+
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -76,6 +83,29 @@ const ManageUsers = () => {
     }
   };
 
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    setCreateError(null);
+    try {
+      const response = await api.post('/admin/users', {
+        name: newName,
+        email: newEmail,
+        password: newPassword,
+        role: newRole,
+        department: newDept
+      });
+      if (response.success) {
+        setNewName('');
+        setNewEmail('');
+        setNewPassword('');
+        setNewDept('');
+        fetchUsers();
+      }
+    } catch (err) {
+      setCreateError(err.message || 'Failed to create user');
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -88,11 +118,45 @@ const ManageUsers = () => {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-gradient">Manage Users</h1>
-        <p style={{ color: 'var(--text-muted)' }}>Admin user management portal. Revoke accounts or assign roles and departments.</p>
+        <h1>Staff registry</h1>
+        <p style={{ color: 'var(--text-muted)' }}>Issue faculty and admin seats. Public signup is students only.</p>
       </div>
 
       {error && <div className="error-banner">{error}</div>}
+
+      <div className="card mb-6">
+        <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Issue a seat</h3>
+        {createError && <div className="error-banner">{createError}</div>}
+        <form onSubmit={handleCreate} style={styles.formGrid}>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label">Name</label>
+            <input className="form-control" value={newName} onChange={(e) => setNewName(e.target.value)} required />
+          </div>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label">Email</label>
+            <input type="email" className="form-control" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required />
+          </div>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label">Temp password</label>
+            <input type="text" className="form-control" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={6} required />
+          </div>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label">Role</label>
+            <select className="form-control" value={newRole} onChange={(e) => setNewRole(e.target.value)}>
+              <option value="faculty">Faculty</option>
+              <option value="admin">Admin</option>
+              <option value="student">Student</option>
+            </select>
+          </div>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label">Department</label>
+            <input className="form-control" value={newDept} onChange={(e) => setNewDept(e.target.value)} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+            <button type="submit" className="btn btn-primary">Create</button>
+          </div>
+        </form>
+      </div>
 
       {editingUser && (
         <div className="card mb-6">
@@ -164,7 +228,7 @@ const ManageUsers = () => {
 
       {users.length === 0 ? (
         <div className="empty-state">
-          <p>No registered accounts in the portal yet.</p>
+          <p>No accounts.</p>
         </div>
       ) : (
         <div className="table-container">

@@ -19,6 +19,46 @@ exports.getUsers = async (req, res, next) => {
   }
 };
 
+exports.createUser = async (req, res, next) => {
+  try {
+    const { name, email, password, role, department } = req.body;
+
+    if (!name || !email || !password || !role) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide name, email, password, and role'
+      });
+    }
+
+    if (!['student', 'faculty', 'admin'].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Role must be student, faculty, or admin'
+      });
+    }
+
+    const exists = await User.findOne({ email });
+    if (exists) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists with this email'
+      });
+    }
+
+    const user = await User.create({ name, email, password, role, department });
+    const data = user.toObject();
+    delete data.password;
+
+    res.status(201).json({
+      success: true,
+      message: 'User created',
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Update user
 // @route   PUT /api/admin/users/:id
 // @access  Private (Admin)

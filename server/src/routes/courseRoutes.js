@@ -5,7 +5,8 @@ const {
   getCourseById, 
   updateCourse, 
   deleteCourse, 
-  joinCourse, 
+  joinCourse,
+  leaveCourse,
   getCourseStudents 
 } = require('../controllers/courseController');
 const { createProject, getProjectsByCourse } = require('../controllers/projectController');
@@ -18,6 +19,7 @@ router.route('/')
   .get(protect, getCourses);
 
 router.post('/join', protect, authorize('student'), joinCourse);
+router.post('/:id/leave', protect, authorize('student'), leaveCourse);
 
 router.route('/:id')
   .get(protect, getCourseById)

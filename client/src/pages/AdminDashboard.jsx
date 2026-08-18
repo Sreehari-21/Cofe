@@ -48,8 +48,8 @@ const AdminDashboard = () => {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-gradient">Admin Dashboard</h1>
-        <p style={{ color: 'var(--text-muted)' }}>Portal analytics, course registries, and project overview.</p>
+        <h1>Registry</h1>
+        <p style={{ color: 'var(--text-muted)' }}>Portal analytics, course folders, assignment overview.</p>
       </div>
 
       {error && <div className="error-banner">{error}</div>}
@@ -160,7 +160,7 @@ const AdminDashboard = () => {
           <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Global Courses Registry</h2>
           {courses.length === 0 ? (
             <div className="empty-state">
-              <p>No courses have been created in the portal yet.</p>
+              <p>No courses.</p>
             </div>
           ) : (
             <div className="table-container">
@@ -202,7 +202,7 @@ const AdminDashboard = () => {
           <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>Global Projects / Assignments Overview</h2>
           {projects.length === 0 ? (
             <div className="empty-state">
-              <p>No project assignments have been created in the portal yet.</p>
+              <p>No assignments.</p>
             </div>
           ) : (
             <div className="table-container">

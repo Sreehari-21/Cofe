@@ -1,5 +1,5 @@
 const express = require('express');
-const { getUsers, updateUser, deleteUser, getStatistics } = require('../controllers/adminController');
+const { getUsers, createUser, updateUser, deleteUser, getStatistics } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
@@ -8,6 +8,7 @@ const router = express.Router();
 router.use(protect, authorize('admin'));
 
 router.get('/users', getUsers);
+router.post('/users', createUser);
 router.route('/users/:id')
   .put(updateUser)
   .delete(deleteUser);

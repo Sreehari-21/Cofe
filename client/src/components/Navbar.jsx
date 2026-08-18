@@ -1,26 +1,35 @@
 import React, { useContext } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { LogOut, User as UserIcon, BookOpen } from 'lucide-react';
 
 const Navbar = () => {
   const { user, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
+
+  const onLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
-    <nav style={styles.navbar}>
+    <nav style={styles.bar}>
       <div style={styles.brand}>
-        <BookOpen size={24} style={styles.brandIcon} />
-        <span style={styles.brandText}>ProjectPortal</span>
+        <span style={styles.mark}>Cofe</span>
+        <span style={styles.sub}>Dossier</span>
       </div>
-      
+
       {user && (
-        <div style={styles.userInfo}>
-          <div style={styles.profileBadge}>
-            <UserIcon size={16} />
-            <span>{user.name} ({user.role.toUpperCase()})</span>
-          </div>
-          <button onClick={logout} style={styles.logoutBtn} title="Logout">
-            <LogOut size={18} />
-            <span style={styles.logoutText}>Logout</span>
+        <div style={styles.nav}>
+          <NavLink to="/" style={linkStyle} end>Desk</NavLink>
+          {user.role === 'admin' && (
+            <NavLink to="/users" style={linkStyle}>Registry</NavLink>
+          )}
+          <NavLink to="/profile" style={linkStyle}>Profile</NavLink>
+          <span className="stamp stamp-open" style={{ transform: 'none', marginLeft: '0.5rem' }}>
+            {user.role}
+          </span>
+          <button type="button" onClick={onLogout} className="btn btn-secondary" style={{ padding: '0.35rem 0.7rem' }}>
+            Sign out
           </button>
         </div>
       )}
@@ -28,64 +37,31 @@ const Navbar = () => {
   );
 };
 
+const linkStyle = ({ isActive }) => ({
+  color: isActive ? 'var(--primary)' : 'var(--text-muted)',
+  fontWeight: 600,
+  fontSize: '0.9rem',
+  textDecoration: isActive ? 'underline' : 'none',
+  textUnderlineOffset: '4px'
+});
+
 const styles = {
-  navbar: {
-    height: '64px',
-    backgroundColor: 'var(--bg-sidebar)',
+  bar: {
+    height: 64,
+    background: 'var(--bg-card)',
     borderBottom: '1px solid var(--border-color)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '0 2rem',
+    padding: '0 1.75rem',
     position: 'sticky',
     top: 0,
-    zIndex: 100,
+    zIndex: 50
   },
-  brand: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.75rem',
-  },
-  brandIcon: {
-    color: 'var(--primary)',
-  },
-  brandText: {
-    fontSize: '1.25rem',
-    fontWeight: '700',
-    letterSpacing: '-0.02em',
-  },
-  userInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1.5rem',
-  },
-  profileBadge: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    fontSize: '0.9rem',
-    color: 'var(--text-muted)',
-    border: '1px solid var(--border-color)',
-    padding: '0.4rem 0.8rem',
-    borderRadius: 'var(--radius-sm)',
-    backgroundColor: 'var(--bg-main)',
-  },
-  logoutBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.4rem',
-    background: 'none',
-    border: 'none',
-    color: 'var(--danger)',
-    cursor: 'pointer',
-    fontSize: '0.9rem',
-    padding: '0.4rem',
-    transition: 'var(--transition)',
-    borderRadius: 'var(--radius-sm)',
-  },
-  logoutText: {
-    fontWeight: 500,
-  }
+  brand: { display: 'flex', alignItems: 'baseline', gap: '0.5rem' },
+  mark: { fontFamily: 'var(--font-display)', fontSize: '1.45rem', fontWeight: 700 },
+  sub: { fontFamily: 'var(--font-mono)', fontSize: '0.7rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)' },
+  nav: { display: 'flex', alignItems: 'center', gap: '1.1rem' }
 };
 
 export default Navbar;

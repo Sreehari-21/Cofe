@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { BookOpen, Users, Clock, Plus, Copy, Check, RefreshCw } from 'lucide-react';
+import { ACADEMIC_YEARS, SEMESTERS, departmentChoices } from '../constants/academic.js';
 
 const FacultyDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -17,8 +18,9 @@ const FacultyDashboard = () => {
   const [courseCode, setCourseCode] = useState('');
   const [description, setDescription] = useState('');
   const [department, setDepartment] = useState('');
-  const [semester, setSemester] = useState('');
-  const [academicYear, setAcademicYear] = useState('');
+  const [deptOther, setDeptOther] = useState('');
+  const [semester, setSemester] = useState(SEMESTERS[0]);
+  const [academicYear, setAcademicYear] = useState(ACADEMIC_YEARS[1]);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState(null);
   
@@ -56,13 +58,19 @@ const FacultyDashboard = () => {
       return;
     }
 
+    const resolvedDept = department === '__other' ? deptOther.trim() : department;
+    if (!resolvedDept) {
+      setCreateError('Please choose a department');
+      return;
+    }
+
     try {
       setCreateLoading(true);
       const res = await api.post('/courses', {
         courseName,
         courseCode,
         description,
-        department,
+        department: resolvedDept,
         semester,
         academicYear
       });
@@ -79,9 +87,10 @@ const FacultyDashboard = () => {
       setCourseName('');
       setCourseCode('');
       setDescription('');
-      setDepartment('');
-      setSemester('');
-      setAcademicYear('');
+      setDepartment(user?.department || departmentChoices(user?.department)[0]);
+      setDeptOther('');
+      setSemester(SEMESTERS[0]);
+      setAcademicYear(ACADEMIC_YEARS[1]);
 
       // Refresh list
       const freshCourses = await api.get('/courses');
@@ -131,14 +140,21 @@ const FacultyDashboard = () => {
     <div>
       <div className="flex-between mb-6">
         <div>
-          <h1 className="text-gradient">Faculty Dashboard</h1>
-          <p style={{ color: 'var(--text-muted)' }}>Welcome back, Professor {user.name}. Manage academic courses and grade deliverables.</p>
+          <h1>Unmarked tray</h1>
+          <p style={{ color: 'var(--text-muted)' }}>Professor {user.name}</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
           <button onClick={loadData} className="btn btn-secondary" style={{ padding: '0.5rem' }}>
             <RefreshCw size={16} />
           </button>
-          <button onClick={() => setShowCreateModal(true)} className="btn btn-primary" style={{ padding: '0.5rem 1rem' }}>
+          <button onClick={() => {
+            setDepartment(user?.department || departmentChoices(user?.department)[0]);
+            setDeptOther('');
+            setSemester(SEMESTERS[0]);
+            setAcademicYear(ACADEMIC_YEARS[1]);
+            setCreateError(null);
+            setShowCreateModal(true);
+          }} className="btn btn-primary" style={{ padding: '0.5rem 1rem' }}>
             <Plus size={16} />
             <span>Create Course</span>
           </button>
@@ -179,11 +195,27 @@ const FacultyDashboard = () => {
         </div>
       </div>
 
-      <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>My Courses</h2>
+      {getPendingReviewCount() > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.75rem' }}>
+          {submissions.filter((s) => s.status === 'pending').map((sub) => (
+            <div key={sub._id} className="packet">
+              <div>
+                <span className="stamp stamp-pending">Unmarked</span>
+                <h3 style={{ marginTop: '0.45rem' }}>{sub.projectId?.title || 'Assignment'}</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  {sub.submittedBy?.name} · v{sub.submissionVersion} · {new Date(sub.submittedAt).toLocaleString()}
+                </p>
+              </div>
+              <Link to={`/submissions/${sub._id}/review`} className="btn btn-primary">Stamp</Link>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h2 style={{ fontSize: '1.15rem', marginBottom: '0.75rem' }}>Course folders</h2>
       {courses.length === 0 ? (
         <div className="empty-state">
-          <p>You have not created any courses yet.</p>
-          <p style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>Click "Create Course" to get started and invite students to your space.</p>
+          <p>No courses.</p>
         </div>
       ) : (
         <div style={styles.coursesGrid}>
@@ -196,7 +228,7 @@ const FacultyDashboard = () => {
               </div>
               
               <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                {course.description || 'No syllabus description provided.'}
+                {course.description || '—'}
               </p>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
@@ -223,34 +255,59 @@ const FacultyDashboard = () => {
             <form onSubmit={handleCreateCourse}>
               <div className="form-group">
                 <label className="form-label">Course Name *</label>
-                <input type="text" className="form-control" required value={courseName} onChange={(e) => setCourseName(e.target.value)} placeholder="e.g. Web Technologies" />
+                <input type="text" className="form-control" required value={courseName} onChange={(e) => setCourseName(e.target.value)} />
               </div>
 
               <div className="grid-cols-2">
                 <div className="form-group">
                   <label className="form-label">Course Code *</label>
-                  <input type="text" className="form-control" required value={courseCode} onChange={(e) => setCourseCode(e.target.value)} placeholder="e.g. 21CS52" />
+                  <input type="text" className="form-control" required value={courseCode} onChange={(e) => setCourseCode(e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Department *</label>
-                  <input type="text" className="form-control" required value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Computer Science" />
+                  <select className="form-control" required value={department} onChange={(e) => setDepartment(e.target.value)}>
+                    {user?.department && (
+                      <option value={user.department}>{user.department} (your department)</option>
+                    )}
+                    {departmentChoices(user?.department)
+                      .filter((d) => d !== user?.department)
+                      .map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    <option value="__other">Other</option>
+                  </select>
                 </div>
               </div>
+
+              {department === '__other' && (
+                <div className="form-group">
+                  <label className="form-label">Other department *</label>
+                  <input className="form-control" required value={deptOther} onChange={(e) => setDeptOther(e.target.value)} />
+                </div>
+              )}
 
               <div className="grid-cols-2">
                 <div className="form-group">
                   <label className="form-label">Semester *</label>
-                  <input type="text" className="form-control" required value={semester} onChange={(e) => setSemester(e.target.value)} placeholder="e.g. 5th Semester" />
+                  <select className="form-control" required value={semester} onChange={(e) => setSemester(e.target.value)}>
+                    {SEMESTERS.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Academic Year *</label>
-                  <input type="text" className="form-control" required value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} placeholder="e.g. 2026-2027" />
+                  <select className="form-control" required value={academicYear} onChange={(e) => setAcademicYear(e.target.value)}>
+                    {ACADEMIC_YEARS.map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
               <div className="form-group">
                 <label className="form-label">Course Syllabus / Description</label>
-                <textarea className="form-control" rows="3" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Enter details about modules and learning outcomes..." />
+                <textarea className="form-control" rows="3" value={description} onChange={(e) => setDescription(e.target.value)} />
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>

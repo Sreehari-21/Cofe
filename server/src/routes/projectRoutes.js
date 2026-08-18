@@ -9,13 +9,13 @@ const {
   getStudents
 } = require('../controllers/projectController');
 const { submitProject } = require('../controllers/submissionController');
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
 const router = express.Router();
 
 router.route('/')
-  .post(protect, createProject)
+  .post(protect, authorize('faculty', 'admin'), createProject)
   .get(protect, getProjects);
 
 router.get('/guides', protect, getGuides);
@@ -23,10 +23,9 @@ router.get('/students', protect, getStudents);
 
 router.route('/:id')
   .get(protect, getProjectById)
-  .put(protect, updateProject)
-  .delete(protect, deleteProject);
+  .put(protect, authorize('faculty', 'admin'), updateProject)
+  .delete(protect, authorize('faculty', 'admin'), deleteProject);
 
-// Submit route (mounts Multer upload middleware)
-router.post('/:id/submit', protect, upload.single('file'), submitProject);
+router.post('/:id/submit', protect, authorize('student', 'admin'), upload.single('file'), submitProject);
 
 module.exports = router;

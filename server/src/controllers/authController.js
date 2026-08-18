@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const sendTokenResponse = (user, statusCode, res) => {
   const token = jwt.sign(
     { id: user._id },
-    process.env.JWT_SECRET || 'supersecretjwtkey_change_me_in_production',
+    process.env.JWT_SECRET,
     { expiresIn: '30d' }
   );
 
@@ -27,14 +27,17 @@ const sendTokenResponse = (user, statusCode, res) => {
 // @access  Public
 exports.register = async (req, res, next) => {
   try {
-    const { name, email, password, role, department } = req.body;
+    const { name, email, password, department, role } = req.body;
 
-    if (!name || !email || !password || !role) {
+    if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide all required fields (name, email, password, role)'
+        message: 'Please provide all required fields (name, email, password)'
       });
     }
+
+    const allowedRoles = ['student', 'faculty'];
+    const assignedRole = allowedRoles.includes(role) ? role : 'student';
 
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -48,7 +51,7 @@ exports.register = async (req, res, next) => {
       name,
       email,
       password,
-      role,
+      role: assignedRole,
       department
     });
 

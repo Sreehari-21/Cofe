@@ -7,6 +7,7 @@ import { BookOpen, Plus, FolderSync, Clock, Award, MessageSquare } from 'lucide-
 const StudentDashboard = () => {
   const { user } = useContext(AuthContext);
   const [courses, setCourses] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -17,16 +18,22 @@ const StudentDashboard = () => {
   const [joinLoading, setJoinLoading] = useState(false);
   const [joinError, setJoinError] = useState(null);
   const [joinSuccess, setJoinSuccess] = useState(null);
+  const [leaveCourse, setLeaveCourse] = useState(null);
+  const [leaveNote, setLeaveNote] = useState('');
+  const [leaveLoading, setLeaveLoading] = useState(false);
+  const [leaveError, setLeaveError] = useState(null);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [coursesRes, subsRes] = await Promise.all([
+      const [coursesRes, subsRes, projRes] = await Promise.all([
         api.get('/courses'),
-        api.get('/submissions')
+        api.get('/submissions'),
+        api.get('/projects')
       ]);
       if (coursesRes.success) setCourses(coursesRes.data);
       if (subsRes.success) setSubmissions(subsRes.data);
+      if (projRes.success) setProjects(projRes.data);
     } catch (err) {
       setError(err.message || 'Failed to load dashboard data');
     } finally {
@@ -73,9 +80,26 @@ const StudentDashboard = () => {
     }
   };
 
+  const handleLeaveCourse = async (e) => {
+    e.preventDefault();
+    if (!leaveCourse) return;
+    setLeaveError(null);
+    try {
+      setLeaveLoading(true);
+      await api.post(`/courses/${leaveCourse._id}/leave`, { note: leaveNote });
+      setLeaveCourse(null);
+      setLeaveNote('');
+      await fetchDashboardData();
+    } catch (err) {
+      setLeaveError(err.message || 'Could not leave course');
+    } finally {
+      setLeaveLoading(false);
+    }
+  };
+
   const getLatestFeedback = () => {
     const reviewed = submissions.filter(sub => sub.status === 'reviewed' && sub.facultyFeedback);
-    if (reviewed.length === 0) return 'No evaluations or feedback received yet';
+    if (reviewed.length === 0) return '—';
     return reviewed[0].facultyFeedback;
   };
 
@@ -94,12 +118,12 @@ const StudentDashboard = () => {
     <div>
       <div className="flex-between mb-6">
         <div>
-          <h1 className="text-gradient">Student Dashboard</h1>
-          <p style={{ color: 'var(--text-muted)' }}>Welcome back, {user.name}. View your enrolled courses and assignments.</p>
+          <h1>Your packets</h1>
+          <p style={{ color: 'var(--text-muted)' }}>{user.name} · {user.department}</p>
         </div>
-        <button onClick={() => setShowJoinModal(true)} className="btn btn-primary" style={{ padding: '0.5rem 1rem' }}>
+        <button onClick={() => setShowJoinModal(true)} className="btn btn-primary">
           <Plus size={16} />
-          <span>Join Course</span>
+          <span>Enrollment slip</span>
         </button>
       </div>
 
@@ -149,11 +173,42 @@ const StudentDashboard = () => {
         </div>
       </div>
 
-      <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>My Courses</h2>
+      <h2 style={{ fontSize: '1.15rem', marginBottom: '0.75rem' }}>Open packets</h2>
+      {projects.length === 0 ? (
+        <div className="empty-state mb-6">
+          <p>No assignments.</p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '2rem' }}>
+          {projects.map((project) => {
+            const mine = submissions.filter((s) => (s.projectId?._id || s.projectId) === project._id);
+            const latest = mine[0];
+            let stamp = { cls: 'stamp-open', text: 'Open' };
+            if (latest?.status === 'reviewed') stamp = { cls: 'stamp-marked', text: 'Marked' };
+            else if (latest) stamp = { cls: 'stamp-pending', text: 'In tray' };
+            else if (new Date() > new Date(project.deadline)) stamp = { cls: 'stamp-late', text: 'Late' };
+            else if ((new Date(project.deadline) - new Date()) / 86400000 <= 3) stamp = { cls: 'stamp-due', text: 'Due soon' };
+            return (
+              <div key={project._id} className="packet">
+                <div>
+                  <span className={`stamp ${stamp.cls}`}>{stamp.text}</span>
+                  <h3 style={{ marginTop: '0.5rem' }}>{project.title}</h3>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    {project.courseId?.courseName} · due {new Date(project.deadline).toLocaleDateString()}
+                    {latest?.status === 'reviewed' ? ` · ${latest.marks}/${project.maxMarks || 100}` : ''}
+                  </p>
+                </div>
+                <Link to={`/projects/${project._id}`} className="btn btn-secondary">Open</Link>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <h2 style={{ fontSize: '1.15rem', marginBottom: '0.75rem' }}>Folders</h2>
       {courses.length === 0 ? (
         <div className="empty-state">
-          <p>You are not currently enrolled in any academic courses.</p>
-          <p style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>Click the "Join Course" button in the top right to enter a reference key provided by your instructor.</p>
+          <p>No courses.</p>
         </div>
       ) : (
         <div style={styles.coursesGrid}>
@@ -166,14 +221,24 @@ const StudentDashboard = () => {
               </div>
               
               <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                {course.description || 'No course syllabus description provided.'}
+                {course.description || '—'}
               </p>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', fontSize: '0.85rem', color: 'var(--text-muted)', gap: '0.5rem' }}>
                 <span>{course.semester} • {course.academicYear}</span>
-                <Link to={`/courses/${course._id}`} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
-                  View Course
-                </Link>
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <Link to={`/courses/${course._id}`} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
+                    Open
+                  </Link>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+                    onClick={() => { setLeaveCourse(course); setLeaveNote(''); setLeaveError(null); }}
+                  >
+                    Leave
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -198,13 +263,9 @@ const StudentDashboard = () => {
                   required 
                   value={referenceKey} 
                   onChange={(e) => setReferenceKey(e.target.value)} 
-                  placeholder="e.g. WT-7K29-XP" 
                   disabled={joinLoading}
                   style={{ textTransform: 'uppercase' }}
                 />
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
-                  Enter the unique key provided by your Faculty instructor.
-                </p>
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
@@ -212,6 +273,25 @@ const StudentDashboard = () => {
                 <button type="submit" disabled={joinLoading} className="btn btn-primary">
                   {joinLoading ? 'Joining...' : 'Join Course'}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {leaveCourse && (
+        <div className="modal-backdrop">
+          <div className="card" style={styles.modalCard}>
+            <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Leave {leaveCourse.courseName}</h2>
+            {leaveError && <div className="error-banner">{leaveError}</div>}
+            <form onSubmit={handleLeaveCourse}>
+              <div className="form-group">
+                <label className="form-label">Note (optional)</label>
+                <textarea className="form-control" rows="3" value={leaveNote} onChange={(e) => setLeaveNote(e.target.value)} />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setLeaveCourse(null)} disabled={leaveLoading}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={leaveLoading}>{leaveLoading ? 'Leaving…' : 'Leave'}</button>
               </div>
             </form>
           </div>

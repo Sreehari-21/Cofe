@@ -1,0 +1,77 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Lock API: auth, files, schema",
+        "description": "Student-only register, required JWT_SECRET, CORS, auth downloads, per-student versions, faculty-only projects, maxMarks/requirements, admin createUser",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "See architecture review risks. No static /uploads.",
+        "testStrategy": "Register ignores role=admin. Missing JWT_SECRET exits. Submit versions isolated per student.",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Vite proxy + client API + guards",
+        "description": "Proxy /api, relative fetch, FileDownload, RequireRole, 404",
+        "status": "done",
+        "dependencies": [1],
+        "priority": "high",
+        "details": "",
+        "testStrategy": "No hardcoded :5050 in client.",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Dossier tokens + workbench shell",
+        "description": "Paper/ink CSS, top workbench, drop sidebar chrome, auth screens",
+        "status": "done",
+        "dependencies": [2],
+        "priority": "high",
+        "details": "",
+        "testStrategy": "Login/register student-only; layout has no left sidebar.",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Student packets + faculty inbox",
+        "description": "Student home = assignment packets; faculty home = unmarked inbox + folders",
+        "status": "done",
+        "dependencies": [3],
+        "priority": "high",
+        "details": "",
+        "testStrategy": "Packets show stamp states; pending reviews listed first.",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Review desk + auth downloads",
+        "description": "Split review, clamp marks, FileDownload everywhere",
+        "status": "done",
+        "dependencies": [1, 3],
+        "priority": "high",
+        "details": "",
+        "testStrategy": "File opens via /api/submissions/:id/file with JWT.",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Admin create staff + seed maxMarks",
+        "description": "Manage Users create faculty/admin; seeder includes maxMarks",
+        "status": "done",
+        "dependencies": [1, 3],
+        "priority": "medium",
+        "details": "",
+        "testStrategy": "POST /api/admin/users creates faculty.",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2026-08-18",
+      "description": "Plan 1 Dossier + risks — authored without parse-prd",
+      "updated": "2026-08-18"
+    }
+  }
+}
