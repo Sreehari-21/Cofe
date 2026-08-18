@@ -12,7 +12,7 @@ const submissionRoutes = require('./routes/submissionRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 // Connect to Database
 connectDB();
