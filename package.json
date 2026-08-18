@@ -1,0 +1,16 @@
+{
+  "name": "project-submission-portal",
+  "version": "1.0.0",
+  "description": "Project Submission Portal for Students, Faculty, and Admins",
+  "main": "server/src/app.js",
+  "scripts": {
+    "install-all": "npm install && npm install --prefix server && npm install --prefix client --legacy-peer-deps",
+    "server": "npm run dev --prefix server",
+    "client": "npm run dev --prefix client",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "seed": "npm run seed --prefix server"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
