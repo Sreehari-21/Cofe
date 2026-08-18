@@ -111,7 +111,7 @@ const SubmissionReview = () => {
             <div style={styles.infoLabel}>Document File</div>
             <div style={styles.infoVal}>
               <a 
-                href={`http://localhost:5000/uploads/${submission.fileInfo.filename}`} 
+                href={`http://localhost:5050/uploads/${submission.fileInfo.filename}`}
                 target="_blank" 
                 rel="noopener noreferrer"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}

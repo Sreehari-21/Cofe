@@ -1,66 +1,59 @@
 const Project = require('../models/Project');
 const User = require('../models/User');
+const Course = require('../models/Course');
 
-// @desc    Create new project
-// @route   POST /api/projects
+// @desc    Create new project/assignment in course
+// @route   POST /api/projects or POST /api/courses/:courseId/projects
 // @access  Private (Student, Faculty, Admin)
 exports.createProject = async (req, res, next) => {
   try {
-    let { title, description, technologies, students, guide, deadline, allowLateSubmission, lateSubmissionDeadline } = req.body;
+    let { title, description, technologies, deadline, allowLateSubmission, lateSubmissionDeadline, courseId } = req.body;
 
-    if (!title || !description || !technologies || !deadline) {
+    if (req.params.courseId) {
+      courseId = req.params.courseId;
+    }
+
+    if (!title || !description || !technologies || !deadline || !courseId) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide required fields: title, description, technologies, deadline'
+        message: 'Please provide required fields: title, description, technologies, deadline, courseId'
       });
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Parent Course not found'
+      });
+    }
+
+    const isEnrolled = course.students.some(id => id.toString() === req.user.id);
+    const isOwner = course.facultyId.toString() === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isEnrolled && !isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to create assignments in this course'
+      });
+    }
+
+    let students = [];
+    let guide = course.facultyId;
+
+    if (req.user.role === 'student') {
+      students = [req.user.id];
+    } else {
+      students = course.students;
     }
 
     if (typeof technologies === 'string') {
       technologies = technologies.split(',').map(tech => tech.trim());
     }
 
-    if (req.user.role === 'student') {
-      students = [req.user.id];
-      if (!guide) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please select a faculty guide'
-        });
-      }
-    } else {
-      if (!students || !Array.isArray(students) || students.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please provide at least one student team member'
-        });
-      }
-      if (!guide) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please select a faculty guide'
-        });
-      }
-    }
-
-    const facultyUser = await User.findById(guide);
-    if (!facultyUser || facultyUser.role !== 'faculty') {
-      return res.status(400).json({
-        success: false,
-        message: 'Assigned guide must be a valid faculty member'
-      });
-    }
-
-    for (const studentId of students) {
-      const studentUser = await User.findById(studentId);
-      if (!studentUser || studentUser.role !== 'student') {
-        return res.status(400).json({
-          success: false,
-          message: `User with ID ${studentId} is not a valid student`
-        });
-      }
-    }
-
     const project = await Project.create({
+      courseId,
       title,
       description,
       technologies,
@@ -94,6 +87,7 @@ exports.getProjects = async (req, res, next) => {
     }
 
     const projects = await Project.find(query)
+      .populate('courseId', 'courseName courseCode')
       .populate('students', 'name email department')
       .populate('guide', 'name email department');
 
@@ -113,30 +107,79 @@ exports.getProjects = async (req, res, next) => {
 exports.getProjectById = async (req, res, next) => {
   try {
     const project = await Project.findById(req.params.id)
+      .populate('courseId', 'courseName courseCode')
       .populate('students', 'name email department')
       .populate('guide', 'name email department');
 
     if (!project) {
       return res.status(404).json({
         success: false,
-        message: 'Project not found'
+        message: 'Project/Assignment not found'
       });
     }
 
-    const isStudent = project.students.some(student => student.id === req.user.id);
-    const isGuide = project.guide.id === req.user.id;
+    const course = await Course.findById(project.courseId);
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Parent Course not found'
+      });
+    }
+
+    const isEnrolled = course.students.some(studentId => studentId.toString() === req.user.id);
+    const isOwner = course.facultyId.toString() === req.user.id;
     const isAdmin = req.user.role === 'admin';
 
-    if (!isStudent && !isGuide && !isAdmin) {
+    if (!isEnrolled && !isOwner && !isAdmin) {
       return res.status(403).json({
         success: false,
-        message: 'Not authorized to view this project'
+        message: 'Not authorized to view assignments in this course'
       });
     }
 
     res.status(200).json({
       success: true,
       data: project
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get all projects/assignments inside a course
+// @route   GET /api/courses/:courseId/projects
+// @access  Private
+exports.getProjectsByCourse = async (req, res, next) => {
+  try {
+    const courseId = req.params.courseId;
+    const course = await Course.findById(courseId);
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found'
+      });
+    }
+
+    const isEnrolled = course.students.some(studentId => studentId.toString() === req.user.id);
+    const isOwner = course.facultyId.toString() === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isEnrolled && !isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view assignments in this course'
+      });
+    }
+
+    const projects = await Project.find({ courseId })
+      .populate('students', 'name email department')
+      .populate('guide', 'name email department');
+
+    res.status(200).json({
+      success: true,
+      count: projects.length,
+      data: projects
     });
   } catch (error) {
     next(error);

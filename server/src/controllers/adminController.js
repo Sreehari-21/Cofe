@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Project = require('../models/Project');
 const Submission = require('../models/Submission');
+const Course = require('../models/Course');
 
 // @desc    Get all users
 // @route   GET /api/admin/users
@@ -93,14 +94,18 @@ exports.getStatistics = async (req, res, next) => {
     const [
       totalStudents,
       totalFaculty,
+      totalCourses,
       totalProjects,
+      totalSubmissions,
       pendingReviews,
       approvedProjects,
       rejectedProjects
     ] = await Promise.all([
       User.countDocuments({ role: 'student' }),
       User.countDocuments({ role: 'faculty' }),
+      Course.countDocuments(),
       Project.countDocuments(),
+      Submission.countDocuments(),
       Submission.countDocuments({ status: 'pending' }),
       Project.countDocuments({ status: 'approved' }),
       Project.countDocuments({ status: 'rejected' })
@@ -111,7 +116,9 @@ exports.getStatistics = async (req, res, next) => {
       data: {
         totalStudents,
         totalFaculty,
+        totalCourses,
         totalProjects,
+        totalSubmissions,
         pendingReviews,
         approvedProjects,
         rejectedProjects

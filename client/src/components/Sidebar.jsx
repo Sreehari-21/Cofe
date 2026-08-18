@@ -29,20 +29,7 @@ const Sidebar = () => {
           </NavLink>
         </li>
         
-        {user.role === 'student' && (
-          <li>
-            <NavLink 
-              to="/create-project" 
-              style={({ isActive }) => ({
-                ...styles.navLink,
-                ...(isActive ? styles.navLinkActive : {})
-              })}
-            >
-              <FolderPlus size={20} />
-              <span>Create Project</span>
-            </NavLink>
-          </li>
-        )}
+
 
         {user.role === 'admin' && (
           <li>

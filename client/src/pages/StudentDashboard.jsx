@@ -2,58 +2,84 @@ import React, { useEffect, useState, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
-import { Folder, Clock, CheckCircle, XCircle, MessageSquare } from 'lucide-react';
+import { BookOpen, Plus, FolderSync, Clock, Award, MessageSquare } from 'lucide-react';
 
 const StudentDashboard = () => {
   const { user } = useContext(AuthContext);
-  const [projects, setProjects] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Join Course Modal states
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [referenceKey, setReferenceKey] = useState('');
+  const [joinLoading, setJoinLoading] = useState(false);
+  const [joinError, setJoinError] = useState(null);
+  const [joinSuccess, setJoinSuccess] = useState(null);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const [coursesRes, subsRes] = await Promise.all([
+        api.get('/courses'),
+        api.get('/submissions')
+      ]);
+      if (coursesRes.success) setCourses(coursesRes.data);
+      if (subsRes.success) setSubmissions(subsRes.data);
+    } catch (err) {
+      setError(err.message || 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [projRes, subRes] = await Promise.all([
-          api.get('/projects'),
-          api.get('/submissions')
-        ]);
-        if (projRes.success) setProjects(projRes.data);
-        if (subRes.success) setSubmissions(subRes.data);
-      } catch (err) {
-        setError(err.message || 'Failed to fetch dashboard data');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    fetchDashboardData();
   }, []);
 
-  const getDeadlineStatus = (deadlineStr) => {
-    const deadline = new Date(deadlineStr);
-    const now = new Date();
-    const diffTime = deadline - now;
-    
-    if (diffTime < 0) {
-      return { text: 'Deadline Passed', isPassed: true };
+  const handleJoinCourse = async (e) => {
+    e.preventDefault();
+    setJoinError(null);
+    setJoinSuccess(null);
+
+    if (!referenceKey.trim()) {
+      setJoinError('Please enter a course reference key');
+      return;
     }
-    
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    if (diffDays === 1) {
-      return { text: '1 day remaining', isPassed: false, isUrgent: true };
+
+    try {
+      setJoinLoading(true);
+      const res = await api.post('/courses/join', { referenceKey: referenceKey.trim() });
+      if (!res.success) {
+        setJoinError(res.message || 'Failed to join course');
+        return;
+      }
+
+      setJoinSuccess(`Successfully joined course: ${res.data.courseName}!`);
+      setReferenceKey('');
+      setTimeout(() => {
+        setShowJoinModal(false);
+        setJoinSuccess(null);
+      }, 1500);
+
+      // Refresh course list
+      const freshCourses = await api.get('/courses');
+      if (freshCourses.success) setCourses(freshCourses.data);
+    } catch (err) {
+      setJoinError(err.message || 'An error occurred while joining');
+    } finally {
+      setJoinLoading(false);
     }
-    return { text: `${diffDays} days remaining`, isPassed: false, isUrgent: diffDays <= 3 };
   };
 
   const getLatestFeedback = () => {
     const reviewed = submissions.filter(sub => sub.status === 'reviewed' && sub.facultyFeedback);
-    if (reviewed.length === 0) return 'No feedback received yet';
+    if (reviewed.length === 0) return 'No evaluations or feedback received yet';
     return reviewed[0].facultyFeedback;
   };
 
-  const pendingSubmissions = projects.length - submissions.length; 
-  const approvedCount = projects.filter(p => p.status === 'approved').length;
-  const rejectedCount = projects.filter(p => p.status === 'rejected').length;
+  const evaluatedCount = submissions.filter(sub => sub.status === 'reviewed').length;
 
   if (loading) {
     return (
@@ -66,9 +92,15 @@ const StudentDashboard = () => {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-gradient">Student Dashboard</h1>
-        <p style={{ color: 'var(--text-muted)' }}>Welcome back, {user.name}. Track your team projects and submission reviews.</p>
+      <div className="flex-between mb-6">
+        <div>
+          <h1 className="text-gradient">Student Dashboard</h1>
+          <p style={{ color: 'var(--text-muted)' }}>Welcome back, {user.name}. View your enrolled courses and assignments.</p>
+        </div>
+        <button onClick={() => setShowJoinModal(true)} className="btn btn-primary" style={{ padding: '0.5rem 1rem' }}>
+          <Plus size={16} />
+          <span>Join Course</span>
+        </button>
       </div>
 
       {error && <div className="error-banner">{error}</div>}
@@ -76,41 +108,31 @@ const StudentDashboard = () => {
       <div className="grid-cols-3">
         <div className="card" style={styles.statCard}>
           <div style={{ ...styles.statIcon, backgroundColor: 'var(--primary-glow)', color: 'var(--primary)' }}>
-            <Folder size={24} />
+            <BookOpen size={24} />
           </div>
           <div>
-            <div style={styles.statLabel}>My Projects</div>
-            <div style={styles.statValue}>{projects.length}</div>
+            <div style={styles.statLabel}>Enrolled Courses</div>
+            <div style={styles.statValue}>{courses.length}</div>
           </div>
         </div>
 
         <div className="card" style={styles.statCard}>
           <div style={{ ...styles.statIcon, backgroundColor: 'var(--warning-glow)', color: 'var(--warning)' }}>
-            <Clock size={24} />
+            <FolderSync size={24} />
           </div>
           <div>
-            <div style={styles.statLabel}>Pending Submissions</div>
-            <div style={styles.statValue}>{pendingSubmissions < 0 ? 0 : pendingSubmissions}</div>
+            <div style={styles.statLabel}>Total Submissions</div>
+            <div style={styles.statValue}>{submissions.length}</div>
           </div>
         </div>
 
         <div className="card" style={styles.statCard}>
           <div style={{ ...styles.statIcon, backgroundColor: 'var(--success-glow)', color: 'var(--success)' }}>
-            <CheckCircle size={24} />
+            <Award size={24} />
           </div>
           <div>
-            <div style={styles.statLabel}>Approved</div>
-            <div style={styles.statValue}>{approvedCount}</div>
-          </div>
-        </div>
-
-        <div className="card" style={styles.statCard}>
-          <div style={{ ...styles.statIcon, backgroundColor: 'var(--danger-glow)', color: 'var(--danger)' }}>
-            <XCircle size={24} />
-          </div>
-          <div>
-            <div style={styles.statLabel}>Rejected</div>
-            <div style={styles.statValue}>{rejectedCount}</div>
+            <div style={styles.statLabel}>Evaluated Deliverables</div>
+            <div style={styles.statValue}>{evaluatedCount}</div>
           </div>
         </div>
       </div>
@@ -119,7 +141,7 @@ const StudentDashboard = () => {
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
           <MessageSquare size={20} style={{ color: 'var(--secondary)', marginTop: '0.2rem' }} />
           <div>
-            <h3 style={{ fontSize: '1rem', marginBottom: '0.25rem' }}>Latest Feedback</h3>
+            <h3 style={{ fontSize: '1rem', marginBottom: '0.25rem' }}>Latest Instructor Feedback</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', fontStyle: 'italic' }}>
               "{getLatestFeedback()}"
             </p>
@@ -127,62 +149,72 @@ const StudentDashboard = () => {
         </div>
       </div>
 
-      <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Project Assignments</h2>
-      {projects.length === 0 ? (
+      <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>My Courses</h2>
+      {courses.length === 0 ? (
         <div className="empty-state">
-          <p>You are not currently assigned to any projects.</p>
-          <p style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>You can create a project assignment proposal using the "Create Project" button in the sidebar.</p>
+          <p>You are not currently enrolled in any academic courses.</p>
+          <p style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>Click the "Join Course" button in the top right to enter a reference key provided by your instructor.</p>
         </div>
       ) : (
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Project Title</th>
-                <th>Faculty Guide</th>
-                <th>Deadline</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {projects.map((project) => {
-                const deadlineStatus = getDeadlineStatus(project.deadline);
-                return (
-                  <tr key={project._id}>
-                    <td style={{ fontWeight: 600 }}>{project.title}</td>
-                    <td>{project.guide?.name || 'Unassigned'}</td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span>{new Date(project.deadline).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                        <span style={{ 
-                          fontSize: '0.8rem', 
-                          fontWeight: 500,
-                          color: deadlineStatus.isPassed 
-                            ? 'var(--danger)' 
-                            : deadlineStatus.isUrgent 
-                              ? 'var(--warning)' 
-                              : 'var(--success)'
-                        }}>
-                          {deadlineStatus.text}
-                        </span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`badge badge-${project.status}`}>
-                        {project.status}
-                      </span>
-                    </td>
-                    <td>
-                      <Link to={`/projects/${project._id}`} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
-                        View / Submit
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div style={styles.coursesGrid}>
+          {courses.map((course) => (
+            <div key={course._id} className="card" style={styles.courseCard}>
+              <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 600 }}>{course.courseCode}</span>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 600, margin: '0.1rem 0' }}>{course.courseName}</h3>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Instructor: Dr. {course.facultyId?.name}</span>
+              </div>
+              
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {course.description || 'No course syllabus description provided.'}
+              </p>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                <span>{course.semester} • {course.academicYear}</span>
+                <Link to={`/courses/${course._id}`} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
+                  View Course
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* JOIN COURSE MODAL */}
+      {showJoinModal && (
+        <div className="modal-backdrop">
+          <div className="card" style={styles.modalCard}>
+            <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Join Academic Course</h2>
+            
+            {joinError && <div className="error-banner mb-4">{joinError}</div>}
+            {joinSuccess && <div className="card mb-4" style={{ borderLeft: '4px solid var(--success)', padding: '0.75rem', color: 'var(--success)' }}>{joinSuccess}</div>}
+
+            <form onSubmit={handleJoinCourse}>
+              <div className="form-group">
+                <label className="form-label">Course Reference Key *</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  required 
+                  value={referenceKey} 
+                  onChange={(e) => setReferenceKey(e.target.value)} 
+                  placeholder="e.g. WT-7K29-XP" 
+                  disabled={joinLoading}
+                  style={{ textTransform: 'uppercase' }}
+                />
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
+                  Enter the unique key provided by your Faculty instructor.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setShowJoinModal(false)} className="btn btn-secondary" disabled={joinLoading}>Cancel</button>
+                <button type="submit" disabled={joinLoading} className="btn btn-primary">
+                  {joinLoading ? 'Joining...' : 'Join Course'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
@@ -215,6 +247,24 @@ const styles = {
   },
   feedbackCard: {
     borderLeft: '4px solid var(--secondary)',
+  },
+  coursesGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+    gap: '1.5rem',
+  },
+  courseCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    padding: '1.25rem',
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: '420px',
+    padding: '1.5rem',
+    boxShadow: 'var(--shadow-lg)',
+    zIndex: 1000,
   }
 };
 

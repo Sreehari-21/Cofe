@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const ProjectSchema = new mongoose.Schema({
+  courseId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Course',
+    required: [true, 'Project must belong to a Course']
+  },
   title: {
     type: String,
     required: [true, 'Please add a project title'],

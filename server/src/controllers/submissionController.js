@@ -1,5 +1,6 @@
 const Submission = require('../models/Submission');
 const Project = require('../models/Project');
+const Course = require('../models/Course');
 
 // @desc    Submit project file
 // @route   POST /api/projects/:id/submit
@@ -16,11 +17,21 @@ exports.submitProject = async (req, res, next) => {
       });
     }
 
-    const isAssigned = project.students.some(studentId => studentId.toString() === req.user.id);
-    if (!isAssigned && req.user.role !== 'admin') {
+    const course = await Course.findById(project.courseId);
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Parent Course not found'
+      });
+    }
+
+    const isEnrolled = course.students.some(studentId => studentId.toString() === req.user.id);
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isEnrolled && !isAdmin) {
       return res.status(403).json({
         success: false,
-        message: 'Not authorized to submit for this project'
+        message: 'Not authorized to submit deliverables for this course assignment'
       });
     }
 

@@ -7,8 +7,8 @@ import DashboardLayout from './layouts/DashboardLayout';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
-import CreateProject from './pages/CreateProject';
-import ProjectDetails from './pages/ProjectDetails';
+import CourseDetails from './pages/CourseDetails';
+import AssignmentDetails from './pages/AssignmentDetails';
 import SubmissionReview from './pages/SubmissionReview';
 import ManageUsers from './pages/ManageUsers';
 import Profile from './pages/Profile';
@@ -25,8 +25,8 @@ function App() {
           {/* Protected Dashboard Routes */}
           <Route element={<DashboardLayout />}>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/create-project" element={<CreateProject />} />
-            <Route path="/projects/:id" element={<ProjectDetails />} />
+            <Route path="/courses/:id" element={<CourseDetails />} />
+            <Route path="/projects/:id" element={<AssignmentDetails />} />
             <Route path="/submissions/:id/review" element={<SubmissionReview />} />
             <Route path="/users" element={<ManageUsers />} />
             <Route path="/profile" element={<Profile />} />

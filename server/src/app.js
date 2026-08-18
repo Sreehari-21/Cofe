@@ -10,6 +10,7 @@ const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const submissionRoutes = require('./routes/submissionRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const courseRoutes = require('./routes/courseRoutes');
 
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../../.env') });
@@ -36,6 +37,7 @@ app.use('/uploads', express.static(uploadDir));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/courses', courseRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/admin', adminRoutes);
