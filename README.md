@@ -111,7 +111,7 @@ You can use the following mock accounts populated by the seeder to test differen
 
 ## 🧪 Testing & Validation
 
-To run the programmatic API validation tests asserting health endpoints, JWT tokens, duplicate enrollment blocks, and cross-course authorization restrictions:
+In order to run the programmatic API validation tests asserting health endpoints, JWT tokens, duplicate enrollment blocks, and cross-course authorization restrictions:
 ```bash
 node server/src/utils/test-api.js
 ```
