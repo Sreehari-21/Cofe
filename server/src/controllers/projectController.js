@@ -1,6 +1,10 @@
 const Project = require('../models/Project');
 const User = require('../models/User');
 const Course = require('../models/Course');
+const Submission = require('../models/Submission');
+const Review = require('../models/Review');
+const path = require('path');
+const fs = require('fs');
 
 // @desc    Create new project/assignment in course
 // @route   POST /api/projects or POST /api/courses/:courseId/projects
@@ -87,7 +91,8 @@ exports.getProjects = async (req, res, next) => {
     let query = {};
 
     if (req.user.role === 'student') {
-      query.students = req.user.id;
+      const enrolledCourses = await Course.find({ students: req.user._id }).distinct('_id');
+      query.courseId = { $in: enrolledCourses };
     } else if (req.user.role === 'faculty') {
       query.guide = req.user.id;
     }
@@ -132,8 +137,9 @@ exports.getProjectById = async (req, res, next) => {
       });
     }
 
-    const isEnrolled = course.students.some(studentId => studentId.toString() === req.user.id);
-    const isOwner = course.facultyId.toString() === req.user.id;
+    const uid = req.user._id.toString();
+    const isEnrolled = course.students.some((studentId) => studentId.toString() === uid);
+    const isOwner = course.facultyId.toString() === uid;
     const isAdmin = req.user.role === 'admin';
 
     if (!isEnrolled && !isOwner && !isAdmin) {
@@ -167,8 +173,9 @@ exports.getProjectsByCourse = async (req, res, next) => {
       });
     }
 
-    const isEnrolled = course.students.some(studentId => studentId.toString() === req.user.id);
-    const isOwner = course.facultyId.toString() === req.user.id;
+    const uid = req.user._id.toString();
+    const isEnrolled = course.students.some((studentId) => studentId.toString() === uid);
+    const isOwner = course.facultyId.toString() === uid;
     const isAdmin = req.user.role === 'admin';
 
     if (!isEnrolled && !isOwner && !isAdmin) {
@@ -295,7 +302,7 @@ exports.deleteProject = async (req, res, next) => {
       });
     }
 
-    const isGuide = project.guide.toString() === req.user.id;
+    const isGuide = project.guide.toString() === req.user._id.toString();
     const isAdmin = req.user.role === 'admin';
 
     if (!isGuide && !isAdmin) {
@@ -303,6 +310,22 @@ exports.deleteProject = async (req, res, next) => {
         success: false,
         message: 'Not authorized to delete this project'
       });
+    }
+
+    const uploadDir = path.join(__dirname, '../../uploads');
+    const subs = await Submission.find({ projectId: project._id });
+    for (const sub of subs) {
+      if (sub.fileInfo?.filename) {
+        const filePath = path.join(uploadDir, path.basename(sub.fileInfo.filename));
+        if (filePath.startsWith(uploadDir) && fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+    }
+    const subIds = subs.map((s) => s._id);
+    if (subIds.length) {
+      await Review.deleteMany({ submissionId: { $in: subIds } });
+      await Submission.deleteMany({ projectId: project._id });
     }
 
     await Project.findByIdAndDelete(req.params.id);

@@ -5,7 +5,7 @@ import { AuthContext } from '../context/AuthContext';
 import FileDownload from '../components/FileDownload';
 import { 
   BookOpen, Users, FileText, CheckSquare, BarChart, 
-  Copy, Check, Plus, Calendar, Clock
+  Copy, Check, Plus, Calendar, Clock, Trash2
 } from 'lucide-react';
 
 const CourseDetails = () => {
@@ -147,6 +147,17 @@ const CourseDetails = () => {
     const studentSub = submissions.find(s => s.projectId?._id === assignmentId && s.submittedBy?._id === user._id);
     if (!studentSub) return { text: 'Not Submitted', status: 'pending' };
     return { text: studentSub.status === 'reviewed' ? 'Reviewed' : 'Submitted', status: studentSub.status };
+  };
+
+  const handleDeleteAssignment = async (assignmentId, title) => {
+    if (!window.confirm(`Delete assignment “${title}”? Submissions for it will also be removed.`)) return;
+    try {
+      await api.delete(`/projects/${assignmentId}`);
+      setAssignments((prev) => prev.filter((a) => a._id !== assignmentId));
+      setSubmissions((prev) => prev.filter((s) => (s.projectId?._id || s.projectId) !== assignmentId));
+    } catch (err) {
+      setError(err.message || 'Could not delete assignment');
+    }
   };
 
   const handleLeaveCourse = async (e) => {
@@ -355,9 +366,22 @@ const CourseDetails = () => {
                         <span>{deadStatus.text}</span>
                       </div>
 
-                      <Link to={`/projects/${assign._id}`} className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem' }}>
-                        {isFaculty ? 'Workspace' : 'View Details'}
-                      </Link>
+                      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                        {isFaculty && (
+                          <button
+                            type="button"
+                            className="btn btn-danger"
+                            style={{ padding: '0.35rem 0.5rem', fontSize: '0.85rem' }}
+                            onClick={() => handleDeleteAssignment(assign._id, assign.title)}
+                            title="Delete assignment"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                        <Link to={`/projects/${assign._id}`} className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem' }}>
+                          {isFaculty ? 'Workspace' : 'View Details'}
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 );

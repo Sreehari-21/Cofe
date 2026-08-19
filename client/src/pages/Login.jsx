@@ -1,6 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import AuthHero from '../components/AuthHero';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -23,10 +24,7 @@ const Login = () => {
   return (
     <div className="auth-split">
       <aside className="auth-panel">
-        <div>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', letterSpacing: '0.16em', textTransform: 'uppercase', opacity: 0.7 }}>Portal</p>
-          <h1 className="display" style={{ fontSize: '2.6rem', color: '#f4efe6', marginTop: '0.75rem' }}>Cofe Dossier</h1>
-        </div>
+        <AuthHero />
       </aside>
       <div className="auth-form-wrap">
         <div className="card" style={{ width: '100%', maxWidth: 420 }}>

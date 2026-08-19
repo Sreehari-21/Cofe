@@ -21,11 +21,11 @@ router.route('/')
 router.get('/guides', protect, getGuides);
 router.get('/students', protect, getStudents);
 
+router.post('/:id/submit', protect, authorize('student', 'admin'), upload.single('file'), submitProject);
+
 router.route('/:id')
   .get(protect, getProjectById)
   .put(protect, authorize('faculty', 'admin'), updateProject)
   .delete(protect, authorize('faculty', 'admin'), deleteProject);
-
-router.post('/:id/submit', protect, authorize('student', 'admin'), upload.single('file'), submitProject);
 
 module.exports = router;

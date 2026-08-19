@@ -267,7 +267,7 @@ const FacultyDashboard = () => {
                   <label className="form-label">Department *</label>
                   <select className="form-control" required value={department} onChange={(e) => setDepartment(e.target.value)}>
                     {user?.department && (
-                      <option value={user.department}>{user.department} (your department)</option>
+                      <option value={user.department}>{user.department}</option>
                     )}
                     {departmentChoices(user?.department)
                       .filter((d) => d !== user?.department)

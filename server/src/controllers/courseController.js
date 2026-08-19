@@ -1,5 +1,5 @@
 const Course = require('../models/Course');
-const User = require('../models/User');
+const Project = require('../models/Project');
 
 // @desc    Create a new course
 // @route   POST /api/courses
@@ -58,6 +58,7 @@ exports.getCourses = async (req, res, next) => {
 
     const courses = await Course.find(query)
       .populate('facultyId', 'name email department')
+      .populate('students', 'name email department')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -86,8 +87,8 @@ exports.getCourseById = async (req, res, next) => {
       });
     }
 
-    const isEnrolled = course.students.some(s => s.id === req.user.id);
-    const isOwner = course.facultyId.id === req.user.id;
+    const isEnrolled = course.students.some((s) => (s._id || s).toString() === req.user.id.toString());
+    const isOwner = (course.facultyId._id || course.facultyId).toString() === req.user.id.toString();
     const isAdmin = req.user.role === 'admin';
 
     if (!isEnrolled && !isOwner && !isAdmin) {
@@ -197,7 +198,7 @@ exports.deleteCourse = async (req, res, next) => {
 // @access  Private (Student)
 exports.joinCourse = async (req, res, next) => {
   try {
-    const { referenceKey } = req.body;
+    const referenceKey = typeof req.body.referenceKey === 'string' ? req.body.referenceKey.trim() : '';
     if (!referenceKey) {
       return res.status(400).json({
         success: false,
@@ -213,7 +214,8 @@ exports.joinCourse = async (req, res, next) => {
       });
     }
 
-    const isEnrolled = course.students.some(studentId => studentId.toString() === req.user.id);
+    const studentId = req.user._id;
+    const isEnrolled = course.students.some((id) => id.toString() === studentId.toString());
     if (isEnrolled) {
       return res.status(400).json({
         success: false,
@@ -221,13 +223,15 @@ exports.joinCourse = async (req, res, next) => {
       });
     }
 
-    course.students.push(req.user.id);
-    await course.save();
+    await Course.updateOne({ _id: course._id }, { $addToSet: { students: studentId } });
+    await Project.updateMany({ courseId: course._id }, { $addToSet: { students: studentId } });
+
+    const updated = await Course.findById(course._id).populate('facultyId', 'name email department');
 
     res.status(200).json({
       success: true,
       message: 'Successfully enrolled in course',
-      data: course
+      data: updated
     });
   } catch (error) {
     next(error);

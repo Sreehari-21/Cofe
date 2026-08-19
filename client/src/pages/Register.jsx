@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { DEPARTMENTS } from '../constants/academic.js';
+import AuthHero from '../components/AuthHero';
 
 const Register = () => {
   const [portal, setPortal] = useState('student');
@@ -30,14 +31,7 @@ const Register = () => {
   return (
     <div className="auth-split">
       <aside className="auth-panel">
-        <div>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', letterSpacing: '0.16em', textTransform: 'uppercase', opacity: 0.7 }}>
-            {isFaculty ? 'Professor portal' : 'Enrollment slip'}
-          </p>
-          <h1 className="display" style={{ fontSize: '2.4rem', color: '#f4efe6', marginTop: '0.75rem' }}>
-            {isFaculty ? 'Faculty' : 'Student'}
-          </h1>
-        </div>
+        <AuthHero />
       </aside>
       <div className="auth-form-wrap">
         <div className="card" style={{ width: '100%', maxWidth: 420 }}>

@@ -3,6 +3,7 @@ const fs = require('fs');
 const Submission = require('../models/Submission');
 const Project = require('../models/Project');
 const Course = require('../models/Course');
+const Review = require('../models/Review');
 
 const uploadDir = path.join(__dirname, '../../uploads');
 
@@ -55,7 +56,8 @@ exports.submitProject = async (req, res, next) => {
       });
     }
 
-    const isEnrolled = course.students.some(studentId => studentId.toString() === req.user.id);
+    const uid = req.user._id.toString();
+    const isEnrolled = course.students.some((studentId) => studentId.toString() === uid);
     const isAdmin = req.user.role === 'admin';
 
     if (!isEnrolled && !isAdmin) {
@@ -215,6 +217,56 @@ exports.downloadFile = async (req, res, next) => {
       `${inline ? 'inline' : 'attachment'}; filename="${original}"`
     );
     res.sendFile(path.resolve(filePath));
+  } catch (error) {
+    next(error);
+  }
+};
+
+const removeUploadFile = (fileInfo) => {
+  if (!fileInfo?.filename) return;
+  const filePath = path.join(uploadDir, path.basename(fileInfo.filename));
+  if (filePath.startsWith(uploadDir) && fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+};
+
+exports.deleteSubmission = async (req, res, next) => {
+  try {
+    const submission = await Submission.findById(req.params.id).populate('projectId', 'guide');
+    if (!submission) {
+      return res.status(404).json({
+        success: false,
+        message: 'Submission not found'
+      });
+    }
+
+    const ownerId = submission.submittedBy.toString();
+    const isOwner = ownerId === req.user._id.toString();
+    const isGuide = submission.projectId?.guide?.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+
+    if (req.user.role === 'student') {
+      if (!isOwner) {
+        return res.status(403).json({ success: false, message: 'You can only delete your own submission' });
+      }
+      if (submission.status === 'reviewed') {
+        return res.status(400).json({
+          success: false,
+          message: 'This submission has already been reviewed and cannot be deleted'
+        });
+      }
+    } else if (!isGuide && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this submission' });
+    }
+
+    removeUploadFile(submission.fileInfo);
+    await Review.deleteMany({ submissionId: submission._id });
+    await Submission.findByIdAndDelete(submission._id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Submission deleted'
+    });
   } catch (error) {
     next(error);
   }

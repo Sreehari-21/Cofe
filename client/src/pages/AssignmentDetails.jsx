@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import FileDownload from '../components/FileDownload';
-import { FileUp, Calendar, ShieldAlert, Award, FileText, HelpCircle, ArrowLeft } from 'lucide-react';
+import { FileUp, Calendar, ShieldAlert, Award, FileText, HelpCircle, ArrowLeft, Trash2 } from 'lucide-react';
 
 const AssignmentDetails = () => {
   const { id } = useParams();
@@ -21,16 +21,18 @@ const AssignmentDetails = () => {
 
   const fetchProjectData = async () => {
     try {
-      const [projRes, subsRes] = await Promise.all([
+      const [projRes, subsRes] = await Promise.allSettled([
         api.get(`/projects/${id}`),
         api.get('/submissions')
       ]);
 
-      if (projRes.success) {
-        setProject(projRes.data);
+      if (projRes.status !== 'fulfilled' || !projRes.value.success) {
+        throw new Error(projRes.reason?.message || 'Failed to load assignment details');
       }
-      if (subsRes.success) {
-        const projectSubs = subsRes.data.filter(sub => (sub.projectId?._id || sub.projectId) === id);
+      setProject(projRes.value.data);
+
+      if (subsRes.status === 'fulfilled' && subsRes.value.success) {
+        const projectSubs = subsRes.value.data.filter((sub) => (sub.projectId?._id || sub.projectId) === id);
         setSubmissions(projectSubs);
       }
     } catch (err) {
@@ -51,6 +53,10 @@ const AssignmentDetails = () => {
   const handleUploadSubmit = async (e) => {
     e.preventDefault();
     if (!file) return;
+    if (user?.role !== 'student') {
+      setError('Sign in with a student account to submit work.');
+      return;
+    }
 
     setUploading(true);
     setError(null);
@@ -88,6 +94,28 @@ const AssignmentDetails = () => {
       return { text: '1 day remaining', isPassed: false, isUrgent: true };
     }
     return { text: `${diffDays} days remaining`, isPassed: false, isUrgent: diffDays <= 3 };
+  };
+
+  const handleDeleteAssignment = async () => {
+    if (!project) return;
+    if (!window.confirm(`Delete assignment “${project.title}”? Submissions will also be removed.`)) return;
+    try {
+      await api.delete(`/projects/${id}`);
+      navigate(`/courses/${project.courseId?._id || project.courseId}`);
+    } catch (err) {
+      setError(err.message || 'Could not delete assignment');
+    }
+  };
+
+  const handleDeleteSubmission = async (submissionId) => {
+    if (!window.confirm('Delete this submission so you can upload again?')) return;
+    try {
+      await api.delete(`/submissions/${submissionId}`);
+      setSubmissions((prev) => prev.filter((s) => s._id !== submissionId));
+      setUploadSuccess('Submission removed. You can upload a new file.');
+    } catch (err) {
+      setError(err.message || 'Could not delete submission');
+    }
   };
 
   if (loading) {
@@ -137,6 +165,11 @@ const AssignmentDetails = () => {
           <span className={`badge badge-${project.status}`} style={{ fontSize: '0.9rem', padding: '0.4rem 1rem' }}>
             {project.status}
           </span>
+          {(user?.role === 'faculty' || user?.role === 'admin') && (
+            <button type="button" className="btn btn-danger" style={{ padding: '0.4rem 0.65rem' }} onClick={handleDeleteAssignment} title="Delete assignment">
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -200,7 +233,7 @@ const AssignmentDetails = () => {
             </p>
           </div>
 
-          {user.role === 'student' && (
+          {user?.role === 'student' && (
             <div className="card">
               <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Submit Deliverables</h3>
               
@@ -304,7 +337,7 @@ const AssignmentDetails = () => {
                     </span>
                   </td>
                   <td>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <FileDownload submissionId={sub._id} />
                       {user.role === 'faculty' && sub.status === 'pending' && (
                         <Link 
@@ -314,6 +347,17 @@ const AssignmentDetails = () => {
                         >
                           Review
                         </Link>
+                      )}
+                      {user.role === 'student' && sub.status === 'pending' && (
+                        <button
+                          type="button"
+                          className="btn btn-danger"
+                          style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem' }}
+                          onClick={() => handleDeleteSubmission(sub._id)}
+                          title="Delete this file"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       )}
                     </div>
                   </td>

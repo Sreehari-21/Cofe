@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "seed": "node src/utils/seeder.js"
+    "seed": "node src/utils/seeder.js",
+    "db": "node src/mongoBrowser.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
