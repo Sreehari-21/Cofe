@@ -1,5 +1,7 @@
 # Academic Project Submission Portal (Cofe)
 
+**Version 1.0** — local MERN dossier: student / faculty / admin courses, submissions, reviews, and notebook-paper UI. Hosted deploy is not in this release; run on localhost (`5050` API, `5173` client).
+
 A professional, role-based MERN monorepo academic submission portal built with React + Vite, Node.js + Express, and MongoDB. The application facilitates a hierarchical academic workflow connecting instructors, courses, assignments, student submissions, and feedback reviews.
 
 ---

@@ -4,3 +4,4 @@ server/uploads/
 dist/
 client/dist/
 .DS_Store
+.cursor
